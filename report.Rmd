@@ -78,7 +78,7 @@ Our first step is to source our `main.R` script to load our completed functions,
 ```{r Source and load data}
 # use source to load your functions from main.R into this document.
 source("main.R")
-expr <- load_expression("/project/bf528/project_1/data/example_intensity_data.csv")
+expr <- load_expression("data/example_intensity_data.csv")
 head(expr)
 ```
 

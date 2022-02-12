@@ -12,14 +12,14 @@
 # https://bioconductor.org/install/
 
 if (!require("BiocManager", quietly = TRUE)){
-
+  install.packages("BiocManager")
 }
 if (!require("biomaRt", quietly = TRUE)){
-
+  BiocManager::install("biomaRt")
 }
 # load tidyverse and your new bioconductor package
-library()
-library()
+library('tidyverse')
+library('biomaRt')
 
 #### Loading and processing data ####
 #' Load Expression Data
@@ -36,8 +36,14 @@ library()
 #' @examples 
 #' `data <- load_expression('/project/bf528/project_1/data/example_intensity_data.csv')`
 load_expression <- function(filepath) {
-  return(NULL)
+  
+  exprs_data <- read.csv(filepath, header = T, sep = " ")
+  return(as_tibble(exprs_data))
 }
+
+###################################################################################################
+
+##################################################################################################
 
 #' Filter 15% of the gene expression values.
 #'
@@ -55,7 +61,20 @@ load_expression <- function(filepath) {
 #' `tibble [40,158 × 1] (S3: tbl_df/tbl/data.frame)`
 #' `$ probeids: chr [1:40158] "1007_s_at" "1053_at" "117_at" "121_at" ...`
 filter_15 <- function(tibble){
-  return()
+  
+  high_exp_probes <- vector()
+  for(i in 2:nrow(tibble)) {
+    row_exp <- tibble[i,] > log2(15)
+    if((sum(row_exp)/length(row_exp))*100 > 15) {
+      high_exp_probes <- append(high_exp_probes, tibble[i,1])
+    }
+  }
+  
+  high_exp_tibble <- as_tibble(high_exp_probes, 1) %>%
+    t()
+  rownames(high_exp_tibble) <- NULL
+
+  return(high_exp_tibble)
 }
 
 #### Gene name conversion ####
@@ -83,7 +102,17 @@ filter_15 <- function(tibble){
 #' `4        1553551_s_at      MT-ND2`
 #' `5           202860_at     DENND4B`
 affy_to_hgnc <- function(affy_vector) {
-  return()
+  ensembl <- useEnsembl(biomart="ensembl", dataset="hsapiens_gene_ensembl")
+  affy_vector <- affy_vector[, 1]
+  gene_names <- as_tibble(
+    getBM(
+      attributes=c("affy_hg_u133_plus_2", "hgnc_symbol"),
+      filters = c("affy_hg_u133_plus_2"),
+      values = affy_vector,
+      mart=ensembl
+    )
+  )
+  return(gene_names)
 }
 
 #### ggplot ####
@@ -118,7 +147,21 @@ affy_to_hgnc <- function(affy_vector) {
 #' `1 202860_at   DENND4B good        7.16      ...`
 #' `2 204340_at   TMEM187 good        6.40      ...`
 reduce_data <- function(expr_tibble, names_ids, good_genes, bad_genes){
-  return()
+  
+  x <- match(expr_tibble$probeids, names_ids$affy_hg_u133_plus_2)
+  genes <- names_ids$hgnc_symbol[x]
+  expr_tibble <- expr_tibble %>%
+    add_column(hgnc_symbol = genes,.after = 'probeids')
+  
+  expr_tibble <- within(expr_tibble, {
+    gene_set = "No"
+    gene_set[expr_tibble$hgnc_symbol %in% (good_genes)] = "good"
+    gene_set[expr_tibble$hgnc_symbol %in% (bad_genes)] = "bad"
+  })
+
+  expr_tibble <- drop_na(expr_tibble) %>% 
+    relocate(gene_set, .after = 'hgnc_symbol')
+  return(expr_tibble)
 }
 
 #' Plot a boxplot of good and bad genes.
@@ -134,6 +177,19 @@ reduce_data <- function(expr_tibble, names_ids, good_genes, bad_genes){
 #'
 #' @examples `p <- plot_ggplot(plot_tibble)`
 plot_ggplot <- function(tibble) {
-  return()
+  
+  tibble <- tibble %>%
+    pivot_longer(cols = starts_with("GSM"), names_to = 'samples', values_to = 'expression_levels')
+  
+  plot_object <- ggplot(tibble) +
+    geom_boxplot(mapping=aes(x=hgnc_symbol,y=expression_levels, fill=gene_set)) +
+    facet_wrap('gene_set') +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    scale_fill_brewer(palette="Dark2") +
+    ggtitle('Expression levels for good and bad genes') +
+    xlab("Gene") +
+    ylab("Expression levels")
+  
+  return(plot_object)
 }
 
