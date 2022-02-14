@@ -1,8 +1,9 @@
 ---
 title: "Assignment 2 Report"
-author: ""
+author: 'Mrugakshi Chidrawar'
 date: "1/1/2022"
-output: html_document
+output:
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
